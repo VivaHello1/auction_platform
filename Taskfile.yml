@@ -1,0 +1,134 @@
+version: "3"
+
+vars:
+  # Development environment variables
+  DEV_POSTGRES_HOST: localhost
+  DEV_POSTGRES_SCHEMA: api
+  DEV_POSTGRES_DB: autobid_development
+  DEV_POSTGRES_USER: postgres
+  DEV_POSTGRES_PASSWORD: postgres
+  DEV_ENVIRONMENT: development
+
+tasks:
+  # Environment management tasks
+  env-dev-start:
+    desc: "Start local development environment"
+    cmds:
+      - echo "Starting local development environment..."
+      - docker compose up --build --remove-orphans
+    silent: true
+
+  env-dev-stop:
+    desc: "Stop local development environment"
+    cmds:
+      - echo "Stopping local development environment..."
+      - docker compose down --remove-orphans
+    silent: true
+
+  env-test-start:
+    desc: "Start PostgreSQL database for testing"
+    cmds:
+      - echo "Starting PostgreSQL database for testing..."
+      - docker compose up --wait --remove-orphans -d postgres
+    silent: true
+
+  env-test-stop:
+    desc: "Stop PostgreSQL database"
+    cmds:
+      - echo "Stopping PostgreSQL database..."
+      - docker compose down --remove-orphans postgres
+    silent: true
+
+  # Code quality tasks
+  check:
+    desc: "Format code and run linting"
+    cmds:
+      - echo "Formatting code with black..."
+      - poetry run black .
+      - echo "Sorting imports with isort..."
+      - poetry run isort .
+      - echo "Running ruff with auto-fix..."
+      - poetry run ruff check . --fix
+    silent: true
+
+  # Testing tasks
+  pytest:
+    desc: "Run tests"
+    cmds:
+      - poetry run pytest
+    silent: true
+
+  ci:
+    desc: "Run full CI pipeline (format, lint, test)"
+    cmds:
+      - task: check
+      - task: env-test-start
+      - task: pytest
+    silent: true
+
+  # Migration tasks
+  migrations-run:
+    desc: "Run database migrations (development)"
+    env:
+      POSTGRES_HOST: "{{.DEV_POSTGRES_HOST}}"
+      POSTGRES_DB: "{{.DEV_POSTGRES_DB}}"
+      POSTGRES_SCHEMA: "{{.DEV_POSTGRES_SCHEMA}}"
+      POSTGRES_USER: "{{.DEV_POSTGRES_USER}}"
+      POSTGRES_PASSWORD: "{{.DEV_POSTGRES_PASSWORD}}"
+      ENVIRONMENT: "{{.DEV_ENVIRONMENT}}"
+    cmds:
+      - echo "Running development database migrations..."
+      - alembic upgrade head
+    silent: true
+
+  migrations-downgrade:
+    desc: "Downgrade database migrations (development)"
+    env:
+      POSTGRES_HOST: "{{.DEV_POSTGRES_HOST}}"
+      POSTGRES_DB: "{{.DEV_POSTGRES_DB}}"
+      POSTGRES_USER: "{{.DEV_POSTGRES_USER}}"
+      POSTGRES_PASSWORD: "{{.DEV_POSTGRES_PASSWORD}}"
+      ENVIRONMENT: "{{.DEV_ENVIRONMENT}}"
+    cmds:
+      - echo "Downgrading development database migrations..."
+      - alembic downgrade -1
+
+  # Development database tasks
+  database-seed:
+    desc: "Seed database with sample data (development)"
+    env:
+      POSTGRES_HOST: "{{.DEV_POSTGRES_HOST}}"
+      POSTGRES_DB: "{{.DEV_POSTGRES_DB}}"
+      POSTGRES_SCHEMA: "{{.DEV_POSTGRES_SCHEMA}}"
+      POSTGRES_USER: "{{.DEV_POSTGRES_USER}}"
+      POSTGRES_PASSWORD: "{{.DEV_POSTGRES_PASSWORD}}"
+      ENVIRONMENT: "{{.DEV_ENVIRONMENT}}"
+    cmds:
+      - echo "Seeding development database with sample data..."
+      - poetry run python seed_utility.py --seed --auctions 10 --vehicles 240
+
+  database-reset:
+    desc: "Clear and seed database with sample data"
+    env:
+      POSTGRES_HOST: "{{.DEV_POSTGRES_HOST}}"
+      POSTGRES_SCHEMA: "{{.DEV_POSTGRES_SCHEMA}}"
+      POSTGRES_DB: "{{.DEV_POSTGRES_DB}}"
+      POSTGRES_USER: "{{.DEV_POSTGRES_USER}}"
+      POSTGRES_PASSWORD: "{{.DEV_POSTGRES_PASSWORD}}"
+      ENVIRONMENT: "{{.DEV_ENVIRONMENT}}"
+    cmds:
+      - echo "Resetting development database..."
+      - poetry run python seed_utility.py --reset
+
+  database-clear:
+    desc: "Clear all data from database"
+    env:
+      POSTGRES_HOST: "{{.DEV_POSTGRES_HOST}}"
+      POSTGRES_SCHEMA: "{{.DEV_POSTGRES_SCHEMA}}"
+      POSTGRES_DB: "{{.DEV_POSTGRES_DB}}"
+      POSTGRES_USER: "{{.DEV_POSTGRES_USER}}"
+      POSTGRES_PASSWORD: "{{.DEV_POSTGRES_PASSWORD}}"
+      ENVIRONMENT: "{{.DEV_ENVIRONMENT}}"
+    cmds:
+      - echo "Clearing development database..."
+      - poetry run python seed_utility.py --clear

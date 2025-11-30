@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: task-check
+        name: run task check
+        entry: task check
+        language: system
+        pass_filenames: false
+        always_run: true
